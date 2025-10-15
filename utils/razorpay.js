@@ -1,10 +1,30 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 
-// Initialize Razorpay
+// Initialize Razorpay with robust env handling
+const sanitize = (v) => {
+  if (!v && v !== '') return '';
+  let s = String(v);
+  // Trim whitespace and strip wrapping quotes if present
+  s = s.trim().replace(/^['"]|['"]$/g, '');
+  return s;
+};
+
+const envKeyId = sanitize(process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY || '');
+const envKeySecret = sanitize(process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET || '');
+
+try {
+  const mask = (x) => (x ? String(x).slice(0, 6) + '***' : '');
+  console.log('🧪 Razorpay ENV:', { KEY_ID: mask(envKeyId), SECRET_SET: !!envKeySecret });
+} catch {}
+
+if (!envKeyId || !envKeySecret) {
+  console.error('❌ Razorpay keys missing. Ensure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET exist in iu_apk/.env and have no quotes or spaces.');
+}
+
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
+  key_id: envKeyId,
+  key_secret: envKeySecret
 });
 
 // Create order

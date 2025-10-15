@@ -5,8 +5,34 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
-require('dotenv').config();
+const path = require('path');
+// Robust .env loading with diagnostics
+const dotenv = require('dotenv');
+// Load from backend folder first
+dotenv.config({ path: path.resolve(__dirname, '.env'), override: true });
+// Fallback: also attempt CWD .env (sometimes nodemon starts with different CWD)
+if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+  dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: false });
+}
+
+// Diagnostics for env loading (prints only safe prefixes)
+try {
+  const mask = (v) => (v ? String(v).slice(0, 6) + '***' : '');
+  console.log('🧪 ENV CHECK:', {
+    cwd: process.cwd(),
+    envDir: __dirname,
+    RZP_ID: mask(process.env.RAZORPAY_KEY_ID),
+    RZP_SEC_SET: !!process.env.RAZORPAY_KEY_SECRET,
+    SG_SET: !!process.env.SENDGRID_API_KEY,
+  });
+} catch {}
+
+// Hard guard to provide clear error early
+if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+  console.error('❌ Missing Razorpay env vars. Ensure iu_apk/.env exists and is UTF-8 encoded with keys RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
+}
 const { verifyEmailTransport } = require('./utils/email');
+const { verifySMSConfig } = require('./utils/sms');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -275,6 +301,16 @@ server.listen(PORT, () => {
       }
     })
     .catch((e) => console.warn('✉️  Email transport check failed:', e?.message || e));
+
+  // Verify Twilio SMS configuration
+  try {
+    const twilioOk = verifySMSConfig();
+    if (!twilioOk) {
+      console.warn('📱 Twilio SMS not fully configured. Ensure TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER are set in iu_apk/.env');
+    }
+  } catch (e) {
+    console.warn('📱 Twilio SMS verification threw an error:', e?.message || e);
+  }
 });
 
 // ==========================

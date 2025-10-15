@@ -121,12 +121,9 @@ router.post("/send-otp", validateUserSignup, async (req, res) => {
 
     await sendOTPEmail(normalizedEmail, otpCode, "signup");
 
-    const devNoEmailCreds =
-      !process.env.EMAIL_HOST ||
-      !process.env.EMAIL_USER ||
-      !process.env.EMAIL_PASS;
+    // In non-production, always return devOtp to unblock QA regardless of email config
     const responsePayload = { status: "success", message: "OTP sent to email" };
-    if (process.env.NODE_ENV !== "production" && devNoEmailCreds) {
+    if (process.env.NODE_ENV !== "production") {
       responsePayload.devOtp = otpCode;
     }
     res.status(200).json(responsePayload);
@@ -335,7 +332,11 @@ router.post("/login-otp", validateUserLogin, async (req, res) => {
 
     await sendOTPEmail(normalizedEmail, otpCode, "login");
 
-    res.status(200).json({ status: "success", message: "OTP sent to email" });
+    const loginResp = { status: "success", message: "OTP sent to email" };
+    if (process.env.NODE_ENV !== "production") {
+      loginResp.devOtp = otpCode;
+    }
+    res.status(200).json(loginResp);
   } catch (err) {
     console.error("Login OTP error:", err);
     res
