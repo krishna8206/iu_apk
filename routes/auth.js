@@ -38,24 +38,8 @@ router.post("/send-otp", validateUserSignup, async (req, res) => {
     } = req.body;
     const normalizedEmail = (email || "").trim().toLowerCase();
 
-    // check duplicate user
-    const existingUser = await User.findOne({
-      $or: [{ email: normalizedEmail }, { phone }],
-    });
-    if (existingUser) {
-      return res.status(400).json({
-        status: "error",
-        message: "User already exists with this email/phone",
-      });
-    }
-
-    // Enforce role-context consistency
-    if (expectedRole && role && expectedRole !== role) {
-      return res.status(400).json({
-        status: "error",
-        message: "Role mismatch for signup: expectedRole does not match role",
-      });
-    }
+    // No duplicate blocking by email/phone; allow reuse across accounts
+    // No role-context blocking; allow any role combination
 
     // If driver signup, require essential driver fields
     if (
@@ -273,12 +257,17 @@ router.post("/login-otp", validateUserLogin, async (req, res) => {
     const { email, expectedRole } = req.body;
     const normalizedEmail = (email || "").trim().toLowerCase();
 
-    const user = await User.findOne({
-      $or: [
-        { email: normalizedEmail },
-        { "subDrivers.email": normalizedEmail },
-      ],
-    });
+    // Flexible selection: prefer expectedRole if provided; otherwise pick latest by email, else sub-driver
+    let user = null;
+    if (expectedRole) {
+      user = await User.findOne({ email: normalizedEmail, role: expectedRole });
+    }
+    if (!user) {
+      user = await User.findOne({ email: normalizedEmail }).sort({ createdAt: -1 });
+    }
+    if (!user) {
+      user = await User.findOne({ "subDrivers.email": normalizedEmail });
+    }
     if (!user)
       return res
         .status(404)
@@ -288,27 +277,7 @@ router.post("/login-otp", validateUserLogin, async (req, res) => {
         .status(403)
         .json({ status: "error", message: "Account is deactivated" });
 
-    // Role enforcement (optional backward compatible)
-    if (expectedRole === "Driver") {
-      const isSubDriver = (user.subDrivers || []).some(
-        (sd) => (sd.email || "").toLowerCase() === normalizedEmail
-      );
-      const isMainDriver =
-        user.role === "Driver" && user.email.toLowerCase() === normalizedEmail;
-      if (!isMainDriver && !isSubDriver) {
-        return res.status(403).json({
-          status: "error",
-          message: "Driver account required for driver app login",
-        });
-      }
-    } else if (expectedRole === "User") {
-      if (user.role !== "User") {
-        return res.status(403).json({
-          status: "error",
-          message: "Customer account required for user app login",
-        });
-      }
-    }
+    // No role-based blocking for login
 
     const otpCode = OTP.generateOTP();
     console.log(
@@ -452,25 +421,7 @@ router.post("/verify-login-otp", validateOTP, async (req, res) => {
       }
     }
 
-    // Role enforcement prior to responding
-    if (expectedRole === "Driver") {
-      const isSubDriver = sessionRole === "SubDriver";
-      const isMainDriver =
-        user.role === "Driver" && user.email.toLowerCase() === normalizedEmail;
-      if (!isMainDriver && !isSubDriver) {
-        return res.status(403).json({
-          status: "error",
-          message: "Driver account required for driver app login",
-        });
-      }
-    } else if (expectedRole === "User") {
-      if (user.role !== "User") {
-        return res.status(403).json({
-          status: "error",
-          message: "Customer account required for user app login",
-        });
-      }
-    }
+    // No role-based blocking in response; frontend can route using role/sessionRole
 
     const response = {
       status: "success",

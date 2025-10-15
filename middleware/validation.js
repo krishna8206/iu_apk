@@ -57,6 +57,7 @@ const validateUserLogin = [
 
   // Optional: which app is attempting login (User app vs Driver app)
   body('expectedRole')
+    .optional()
     .isIn(['User', 'Driver'])
     .withMessage('expectedRole must be either "User" or "Driver"'),
 
@@ -76,6 +77,7 @@ const validateOTP = [
 
   // Enforce role during login OTP verification and allow same shape for signup
   body('expectedRole')
+    .optional()
     .isIn(['User', 'Driver'])
     .withMessage('expectedRole must be either "User" or "Driver"'),
 
