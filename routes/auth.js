@@ -2,10 +2,12 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const OTP = require("../models/OTP");
-const { sendOTPEmail, sendWelcomeEmail } = require("../utils/email");
+const { sendWelcomeEmail } = require("../utils/email");
+const { sendOTPSMS } = require("../utils/sms");
 const { authenticateToken } = require("../middleware/auth");
 const {
   validateUserSignup,
+  validateUserSignupOtp,
   validateUserLogin,
   validateOTP,
 } = require("../middleware/validation");
@@ -20,7 +22,7 @@ const generateToken = (userId) => {
 };
 
 // ---------------------- SEND OTP ----------------------
-router.post("/send-otp", validateUserSignup, async (req, res) => {
+router.post("/send-otp", validateUserSignupOtp, async (req, res) => {
   try {
     const {
       email,

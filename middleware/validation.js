@@ -13,7 +13,7 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
-// User validation rules
+// Full signup validation (used when creating accounts after OTP)
 const validateUserSignup = [
   body('fullName')
     .trim()
@@ -49,6 +49,46 @@ const validateUserSignup = [
   handleValidationErrors
 ];
 
+// Lightweight validation for OTP send during signup
+const validateUserSignupOtp = [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email'),
+
+  body('phone')
+    .matches(/^[6-9]\d{9}$/)
+    .withMessage('Please provide a valid 10-digit phone number'),
+
+  body('fullName')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Full name must be between 2 and 50 characters'),
+
+  body('gender')
+    .optional()
+    .isIn(['Male', 'Female', 'Other'])
+    .withMessage('Gender must be Male, Female, or Other'),
+
+  body('dateOfBirth')
+    .optional()
+    .isISO8601()
+    .withMessage('Please provide a valid date of birth'),
+
+  body('role')
+    .optional()
+    .isIn(['User', 'Driver'])
+    .withMessage('Role must be User or Driver'),
+
+  body('expectedRole')
+    .optional()
+    .isIn(['User', 'Driver'])
+    .withMessage('expectedRole must be either "User" or "Driver"'),
+
+  handleValidationErrors
+];
+
 const validateUserLogin = [
   body('email')
     .isEmail()
@@ -57,6 +97,7 @@ const validateUserLogin = [
 
   // Optional: which app is attempting login (User app vs Driver app)
   body('expectedRole')
+    .optional()
     .isIn(['User', 'Driver'])
     .withMessage('expectedRole must be either "User" or "Driver"'),
 
@@ -199,6 +240,7 @@ const validatePagination = [
 module.exports = {
   handleValidationErrors,
   validateUserSignup,
+  validateUserSignupOtp,
   validateUserLogin,
   validateOTP,
   validateDriverInfo,
