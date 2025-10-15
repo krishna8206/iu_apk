@@ -32,7 +32,6 @@ if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
   console.error('❌ Missing Razorpay env vars. Ensure iu_apk/.env exists and is UTF-8 encoded with keys RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
 }
 const { verifyEmailTransport } = require('./utils/email');
-const { verifySMSConfig } = require('./utils/sms');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -301,16 +300,6 @@ server.listen(PORT, () => {
       }
     })
     .catch((e) => console.warn('✉️  Email transport check failed:', e?.message || e));
-
-  // Verify Twilio SMS configuration
-  try {
-    const twilioOk = verifySMSConfig();
-    if (!twilioOk) {
-      console.warn('📱 Twilio SMS not fully configured. Ensure TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER are set in iu_apk/.env');
-    }
-  } catch (e) {
-    console.warn('📱 Twilio SMS verification threw an error:', e?.message || e);
-  }
 });
 
 // ==========================
