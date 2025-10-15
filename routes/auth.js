@@ -121,10 +121,14 @@ router.post("/send-otp", validateUserSignupOtp, async (req, res) => {
       expiresAt: otpRecord.expiresAt,
     });
 
-    await sendOTPEmail(normalizedEmail, otpCode, "signup");
+    const smsResult = await sendOTPSMS(phone, otpCode, "signup");
+    if (!smsResult?.success) {
+      console.error("❌ Signup SMS send failed:", smsResult?.error || 'unknown');
+      return res.status(500).json({ status: "error", message: "Failed to send OTP via SMS", error: smsResult?.error });
+    }
 
-    // In non-production, always return devOtp to unblock QA regardless of email config
-    const responsePayload = { status: "success", message: "OTP sent to email" };
+    // In non-production, always return devOtp to unblock QA
+    const responsePayload = { status: "success", message: "OTP sent via SMS" };
     if (process.env.NODE_ENV !== "production") {
       responsePayload.devOtp = otpCode;
     }
@@ -332,9 +336,15 @@ router.post("/login-otp", validateUserLogin, async (req, res) => {
       expiresAt: otpRecord.expiresAt,
     });
 
-    await sendOTPEmail(normalizedEmail, otpCode, "login");
+    const destinationPhone = user.phone || (user.subDrivers?.[0]?.phone || '');
+    const loginSmsResult = await sendOTPSMS(destinationPhone, otpCode, "login");
+    if (!loginSmsResult?.success) {
+      console.error("❌ Login SMS send failed:", loginSmsResult?.error || 'unknown');
+      return res.status(500).json({ status: "error", message: "Failed to send OTP via SMS", error: loginSmsResult?.error });
+    }
 
-    const loginResp = { status: "success", message: "OTP sent to email" };
+    const masked = String(destinationPhone).replace(/^(.*)(\d{4})$/, (m, a, b) => `${"*".repeat(Math.max(0, a.length))}${b}`);
+    const loginResp = { status: "success", message: `OTP sent via SMS to ${masked}` };
     if (process.env.NODE_ENV !== "production") {
       loginResp.devOtp = otpCode;
     }
