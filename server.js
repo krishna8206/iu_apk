@@ -24,6 +24,9 @@ try {
     RZP_ID: mask(process.env.RAZORPAY_KEY_ID),
     RZP_SEC_SET: !!process.env.RAZORPAY_KEY_SECRET,
     SG_SET: !!process.env.SENDGRID_API_KEY,
+    TW_SID_SET: !!process.env.TWILIO_ACCOUNT_SID,
+    TW_TOKEN_SET: !!process.env.TWILIO_AUTH_TOKEN,
+    TW_FROM_SET: !!process.env.TWILIO_FROM_NUMBER,
   });
 } catch {}
 
@@ -32,6 +35,7 @@ if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
   console.error('❌ Missing Razorpay env vars. Ensure iu_apk/.env exists and is UTF-8 encoded with keys RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
 }
 const { verifyEmailTransport } = require('./utils/email');
+const { verifySMSConfig } = require('./utils/sms');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -300,6 +304,16 @@ server.listen(PORT, () => {
       }
     })
     .catch((e) => console.warn('✉️  Email transport check failed:', e?.message || e));
+
+  // Verify SMS transport (Twilio) on startup
+  try {
+    const smsOk = verifySMSConfig();
+    if (!smsOk) {
+      console.warn('📱 Twilio SMS not fully configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER');
+    }
+  } catch (e) {
+    console.warn('📱 SMS transport check failed:', e?.message || e);
+  }
 });
 
 // ==========================

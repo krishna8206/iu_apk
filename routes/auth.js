@@ -2,7 +2,8 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const OTP = require("../models/OTP");
-const { sendOTPEmail, sendWelcomeEmail } = require("../utils/email");
+const { sendOTPSMS } = require("../utils/sms");
+const { sendWelcomeEmail } = require("../utils/email");
 const { authenticateToken } = require("../middleware/auth");
 const {
   validateUserSignup,
@@ -103,10 +104,11 @@ router.post("/send-otp", validateUserSignup, async (req, res) => {
       expiresAt: otpRecord.expiresAt,
     });
 
-    await sendOTPEmail(normalizedEmail, otpCode, "signup");
+    // Send OTP via SMS to provided phone
+    await sendOTPSMS(phone, otpCode, "signup");
 
     // In non-production, always return devOtp to unblock QA regardless of email config
-    const responsePayload = { status: "success", message: "OTP sent to email" };
+    const responsePayload = { status: "success", message: "OTP sent via SMS" };
     if (process.env.NODE_ENV !== "production") {
       responsePayload.devOtp = otpCode;
     }
@@ -299,9 +301,16 @@ router.post("/login-otp", validateUserLogin, async (req, res) => {
       expiresAt: otpRecord.expiresAt,
     });
 
-    await sendOTPEmail(normalizedEmail, otpCode, "login");
+    // Ensure user has a phone number to receive SMS
+    if (!user.phone) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "No phone number on account. Cannot send OTP via SMS." });
+    }
 
-    const loginResp = { status: "success", message: "OTP sent to email" };
+    await sendOTPSMS(user.phone, otpCode, "login");
+
+    const loginResp = { status: "success", message: "OTP sent via SMS" };
     if (process.env.NODE_ENV !== "production") {
       loginResp.devOtp = otpCode;
     }
